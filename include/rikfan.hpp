@@ -20,7 +20,7 @@
 #include <sdbusplus/asio/object_server.hpp>
 
 static constexpr const char* RikfanServiceName =
-    "xyz.openbmc_project.Rikfan";
+    "xyz.openbmc_project.rikfan";
 static constexpr const char* RikfanIface =
     "xyz.openbmc_project.Rikfan";
 static constexpr const char* RikfanPath =
@@ -33,11 +33,11 @@ class RikfanMgr
     std::shared_ptr<sdbusplus::asio::connection> conn;
     std::shared_ptr<sdbusplus::asio::dbus_interface> iface;
 
-    // std::unordered_map<std::string, std::string> readAllVariable();
+    std::unordered_map<std::string, std::string> readAllVariable();
     void setFanMode(const std::string& mode);
 
   public:
-    UBootEnvMgr(boost::asio::io_service& io,
+    RikfanMgr(boost::asio::io_service& io,
                 sdbusplus::asio::object_server& srv,
                 std::shared_ptr<sdbusplus::asio::connection>& conn);
 };

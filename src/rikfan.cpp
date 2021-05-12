@@ -62,7 +62,7 @@ RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
     server(srv_), conn(conn_)
 {
     iface = server.add_interface(RikfanPath, RikfanIface);
-    // iface->register_method("ReadAll", [this]() { return readAllVariable(); });
+    iface->register_method("ReadMode", [this]() { return "1"; });
     // iface->register_method("Read", [this](const std::string& key) {
     //     std::unordered_map<std::string, std::string> env = readAllVariable();
     //     auto it = env.find(key);
@@ -80,7 +80,7 @@ RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
     iface->initialize(true);
 }
 
-std::unordered_map<std::string, std::string> UBootEnvMgr::readAllVariable()
+std::unordered_map<std::string, std::string> RikfanMgr::readAllVariable()
 {
     std::unordered_map<std::string, std::string> env;
     std::vector<std::string> output = executeCmd("/sbin/fw_printenv");
@@ -102,10 +102,10 @@ std::unordered_map<std::string, std::string> UBootEnvMgr::readAllVariable()
     return env;
 }
 
-void UBootEnvMgr::setFanMode(const std::string& mode)
+void RikfanMgr::setFanMode(const std::string& mode)
 {
     phosphor::logging::log<phosphor::logging::level::ERR>(
-        "Rikfan set mode",
+        ("Rikfan set mode " + mode).c_str(),
         phosphor::logging::entry("MODE=%s", mode.c_str()));
     // executeCmd("/sbin/rikfan_setmode", mode.c_str());
     return;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-project(phosphor-u-boot-env-mgr CXX)
+project(rikfan CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
@@ -15,7 +15,7 @@ add_definitions(-DBOOST_NO_RTTI)
 add_definitions(-DBOOST_NO_TYPEID)
 add_definitions(-DBOOST_ASIO_DISABLE_THREADS)
 
-set(SRC_FILES src/mainapp.cpp src/u-boot-env-mgr.cpp)
+set(SRC_FILES src/mainapp.cpp src/rikfan.cpp)
 
 # import sdbusplus
 find_package(PkgConfig REQUIRED)
@@ -43,7 +43,7 @@ target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} phosphor_logging)
 
 set(SERVICE_FILES
-    ${PROJECT_SOURCE_DIR}/xyz.openbmc_project.U_Boot.Environment.Manager.service
+    ${PROJECT_SOURCE_DIR}/xyz.openbmc_project.rikfan.service
     )
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)

@@ -21,7 +21,7 @@ int main()
 {
     boost::asio::io_service io;
     auto conn = std::make_shared<sdbusplus::asio::connection>(io);
-    conn->request_name(uBootEnvMgrServiceName);
+    conn->request_name(RikfanServiceName);
     sdbusplus::asio::object_server server(conn);
 
     RikfanMgr rikfanMgr(io, server, conn);
