@@ -1,0 +1,13 @@
+[Unit]
+Description=rikfan
+
+[Service]
+Restart=always
+RestartSec=2
+ExecStart=/usr/bin/rikfan
+StartLimitInterval=0
+Type=dbus
+BusName=xyz.openbmc_project.rikfan
+
+[Install]
+WantedBy=basic.target

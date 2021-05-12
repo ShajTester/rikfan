@@ -19,22 +19,22 @@
 #include <boost/asio/io_service.hpp>
 #include <sdbusplus/asio/object_server.hpp>
 
-static constexpr const char* uBootEnvMgrServiceName =
-    "xyz.openbmc_project.U_Boot.Environment.Manager";
-static constexpr const char* uBootEnvMgrIface =
-    "xyz.openbmc_project.U_Boot.Environment.Manager";
-static constexpr const char* uBootEnvMgrPath =
-    "/xyz/openbmc_project/u_boot/environment/mgr";
+static constexpr const char* RikfanServiceName =
+    "xyz.openbmc_project.Rikfan";
+static constexpr const char* RikfanIface =
+    "xyz.openbmc_project.Rikfan";
+static constexpr const char* RikfanPath =
+    "/xyz/openbmc_project/rikfan";
 
-class UBootEnvMgr
+class RikfanMgr
 {
     boost::asio::io_service& io;
     sdbusplus::asio::object_server& server;
     std::shared_ptr<sdbusplus::asio::connection> conn;
     std::shared_ptr<sdbusplus::asio::dbus_interface> iface;
 
-    std::unordered_map<std::string, std::string> readAllVariable();
-    void writeVariable(const std::string& key, const std::string& value);
+    // std::unordered_map<std::string, std::string> readAllVariable();
+    void setFanMode(const std::string& mode);
 
   public:
     UBootEnvMgr(boost::asio::io_service& io,

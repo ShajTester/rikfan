@@ -14,7 +14,7 @@
 // limitations under the License.
 */
 
-#include "u-boot-env-mgr.hpp"
+#include "rikfan.hpp"
 #include <phosphor-logging/log.hpp>
 
 int main()
@@ -24,7 +24,7 @@ int main()
     conn->request_name(uBootEnvMgrServiceName);
     sdbusplus::asio::object_server server(conn);
 
-    UBootEnvMgr uBootEnvMgr(io, server, conn);
+    RikfanMgr rikfanMgr(io, server, conn);
 
     io.run();
 }

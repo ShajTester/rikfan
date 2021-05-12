@@ -14,7 +14,7 @@
 // limitations under the License.
 */
 
-#include "u-boot-env-mgr.hpp"
+#include "rikfan.hpp"
 #include <phosphor-logging/log.hpp>
 #include <phosphor-logging/elog-errors.hpp>
 #include <boost/process/child.hpp>
@@ -55,27 +55,27 @@ static std::vector<std::string> executeCmd(const char* path,
     return stdOutput;
 }
 
-UBootEnvMgr::UBootEnvMgr(boost::asio::io_service& io_,
-                         sdbusplus::asio::object_server& srv_,
-                         std::shared_ptr<sdbusplus::asio::connection>& conn_) :
+RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
+                     sdbusplus::asio::object_server& srv_,
+                     std::shared_ptr<sdbusplus::asio::connection>& conn_) :
     io(io_),
     server(srv_), conn(conn_)
 {
-    iface = server.add_interface(uBootEnvMgrPath, uBootEnvMgrIface);
-    iface->register_method("ReadAll", [this]() { return readAllVariable(); });
-    iface->register_method("Read", [this](const std::string& key) {
-        std::unordered_map<std::string, std::string> env = readAllVariable();
-        auto it = env.find(key);
-        if (it != env.end())
-        {
-            return it->second;
-        }
-        return std::string{};
-    });
+    iface = server.add_interface(RikfanPath, RikfanIface);
+    // iface->register_method("ReadAll", [this]() { return readAllVariable(); });
+    // iface->register_method("Read", [this](const std::string& key) {
+    //     std::unordered_map<std::string, std::string> env = readAllVariable();
+    //     auto it = env.find(key);
+    //     if (it != env.end())
+    //     {
+    //         return it->second;
+    //     }
+    //     return std::string{};
+    // });
 
     iface->register_method(
-        "Write", [this](const std::string& key, const std::string& value) {
-            writeVariable(key, value);
+        "Write", [this](const std::string& mode) {
+            setFanMode(mode);
         });
     iface->initialize(true);
 }
@@ -102,9 +102,11 @@ std::unordered_map<std::string, std::string> UBootEnvMgr::readAllVariable()
     return env;
 }
 
-void UBootEnvMgr::writeVariable(const std::string& key,
-                                const std::string& value)
+void UBootEnvMgr::setFanMode(const std::string& mode)
 {
-    executeCmd("/sbin/fw_setenv", key.c_str(), value.c_str());
+    phosphor::logging::log<phosphor::logging::level::ERR>(
+        "Rikfan set mode",
+        phosphor::logging::entry("MODE=%s", mode.c_str()));
+    // executeCmd("/sbin/rikfan_setmode", mode.c_str());
     return;
 }
