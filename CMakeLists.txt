@@ -15,7 +15,7 @@ add_definitions(-DBOOST_NO_RTTI)
 add_definitions(-DBOOST_NO_TYPEID)
 add_definitions(-DBOOST_ASIO_DISABLE_THREADS)
 
-set(SRC_FILES src/mainapp.cpp src/rikfan.cpp)
+set(SRC_FILES src/mainapp.cpp src/rikfan.cpp src/fan.cpp)
 
 # import sdbusplus
 find_package(PkgConfig REQUIRED)
@@ -48,4 +48,5 @@ set(SERVICE_FILES
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 install(FILES ${SERVICE_FILES} DESTINATION /lib/systemd/system/)
+install(FILES ${PROJECT_SOURCE_DIR}/rikfan.conf DESTINATION /etc/rikfan COMPONENT config)
 

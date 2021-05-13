@@ -23,6 +23,12 @@
 #include <unordered_map>
 #include <xyz/openbmc_project/Common/error.hpp>
 
+#include <filesystem>
+#include "fan.h"
+
+namespace fs = std::filesystem;
+
+
 template <typename... ArgTypes>
 static std::vector<std::string> executeCmd(const char* path,
                                            ArgTypes&&... tArgs)
@@ -62,7 +68,7 @@ RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
     server(srv_), conn(conn_)
 {
     iface = server.add_interface(RikfanPath, RikfanIface);
-    iface->register_method("ReadMode", [this]() { return "1"; });
+    iface->register_method("ReadMode", [this]() { return this->mode; });
     // iface->register_method("Read", [this](const std::string& key) {
     //     std::unordered_map<std::string, std::string> env = readAllVariable();
     //     auto it = env.find(key);
@@ -74,10 +80,13 @@ RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
     // });
 
     iface->register_method(
-        "Write", [this](const std::string& mode) {
+        "WriteMode", [this](const std::string& mode) {
             setFanMode(mode);
         });
     iface->initialize(true);
+
+    this->mode = readConf();
+    setFanMode(std::to_string(this->mode));
 }
 
 std::unordered_map<std::string, std::string> RikfanMgr::readAllVariable()
@@ -105,8 +114,46 @@ std::unordered_map<std::string, std::string> RikfanMgr::readAllVariable()
 void RikfanMgr::setFanMode(const std::string& mode)
 {
     phosphor::logging::log<phosphor::logging::level::ERR>(
-        ("Rikfan set mode " + mode).c_str(),
-        phosphor::logging::entry("MODE=%s", mode.c_str()));
+        ("Rikfan set mode " + mode).c_str());
+
+    try 
+    {
+       this->mode = std::stoi(mode);
+    } 
+    catch (const std::exception& e) 
+    { 
+         // std::cout << e.what();
+        this->mode = 2;
+    }
+    setPWM(this->mode);
+    writeConf(this->mode);
     // executeCmd("/sbin/rikfan_setmode", mode.c_str());
     return;
 }
+
+
+int RikfanMgr::readConf()
+{
+    int m = 2;
+    fs::path conf_fname = "/etc/rikfan/rikfan.conf";
+    try
+    {
+        std::ifstream conf_stream {conf_fname};
+        conf_stream >> m;
+    }
+    catch (const std::exception& e)
+    {
+        m = 2;
+        writeConf(m);
+    }
+    return m;
+}
+
+
+void RikfanMgr::writeConf(int m)
+{
+    fs::path conf_fname = "/etc/rikfan/rikfan.conf";
+    std::ofstream conf_stream {conf_fname};
+    conf_stream << m;
+}
+
