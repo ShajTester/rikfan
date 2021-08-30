@@ -1,6 +1,5 @@
 
 
-
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -28,8 +27,6 @@
 namespace fs = std::filesystem;
 using namespace std::literals::chrono_literals;
 using json = nlohmann::json;
-
-// #define RIKFAN_DEBUG
 
 
 SensorFS::SensorFS(const std::string &p, double err_val) : error_value{err_val}, state{0}
@@ -100,9 +97,15 @@ void SensorFS::set_value(double in)
     }
 }
 
+std::string SensorFS::repr()
+{
+    return std::string{"FileSystem: (" + std::to_string(state) + ") " + real_path};
+}
+
+
 SensorDBus::SensorDBus(const std::string &p, double err_val, std::shared_ptr<sdbusplus::asio::connection>& b) :
     error_value{err_val},
-    state{0},
+    state{10},
     real_path{p},
     passive_bus{b}
 {}
@@ -124,13 +127,21 @@ double SensorDBus::get_value()
             auto resp = passive_bus->call(mapper);
             resp.read(respData);
             val = std::get<double>(respData);
+            phosphor::logging::log<phosphor::logging::level::INFO>(std::to_string(val).c_str());
         }
-        catch (sdbusplus::exception_t&)
+        catch (sdbusplus::exception_t& e)
         {
+            phosphor::logging::log<phosphor::logging::level::ERR>("SensorDBus::get_value error");
+            phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
             val = error_value;
         }
     }
     return val;
+}
+
+std::string SensorDBus::repr()
+{
+    return std::string{"DBus: (" + std::to_string(state) + ") " + real_path};
 }
 
 
@@ -166,9 +177,9 @@ Zone::Zone(std::string n,
     for(const auto &path: f)
     {
         if(path.substr(0, 5) == "/xyz/")
-            sensors.push_back(std::make_unique<SensorDBus>(path, error_read_temp, conn_));
+            pwms.push_back(std::make_unique<SensorDBus>(path, error_read_temp, conn_));
         else
-            sensors.push_back(std::make_unique<SensorFS>(path, error_read_temp));
+            pwms.push_back(std::make_unique<SensorFS>(path, error_read_temp));
     }
 
     initializePIDStruct(&pid_info, pidinfo_initial);
@@ -189,6 +200,7 @@ void Zone::start()
     sample_time = std::chrono::system_clock::now();
 #endif
     pmainthread = std::make_unique<std::thread>(&Zone::zone_control_loop, this);
+    phosphor::logging::log<phosphor::logging::level::INFO>(("Zone " + name + " started").c_str());
 }
 
 void Zone::stop()
@@ -221,8 +233,6 @@ void Zone::command(const char *cmd)
 
 double Zone::processInputs()
 {
-    std::string actual_path;
-    std::ifstream ifs;
     double retval = 0;
     for (auto &sens : sensors)
     {
@@ -252,6 +262,7 @@ void Zone::processOutputs(double in)
 void Zone::zone_control_loop(Zone *zone)
 {
     auto delay = std::chrono::milliseconds(zone->millisec);
+    phosphor::logging::log<phosphor::logging::level::INFO>(("Thread for zone " + zone->name + " started").c_str());
     while (!zone->stop_flag)
     {
         if (zone->manualmode)
@@ -264,12 +275,13 @@ void Zone::zone_control_loop(Zone *zone)
             auto output = zone->processPID(input);
             zone->processOutputs(output);
 
+
 #ifdef RIKFAN_DEBUG
 
             auto new_sample = std::chrono::system_clock::now();
 
             std::ofstream ofs;
-            ofs.open(fs::path("/tmp/rikfan") / zone->name);
+            ofs.open(fs::path{"/tmp/rikfan"} / zone->name);
             if (ofs.is_open())
             {
                 ofs << "setpoint: " << zone->setpt;
@@ -278,12 +290,19 @@ void Zone::zone_control_loop(Zone *zone)
                 std::chrono::duration<double> diff = new_sample - zone->sample_time;
                 zone->sample_time = new_sample;
                 ofs << "\nsample_time: " << diff.count();
+                ofs << "\nmanualmode: " << zone->manualmode;
+                ofs << "\nsensors: " << zone->sensors.size();
+                ofs << "\nsensors[0].repr: " << zone->sensors[0]->repr();
+                ofs << "\npwms: " << zone->pwms.size();
+                ofs << "\npwms[0].repr: " << zone->pwms[0]->repr();
+                ofs << "\nmanualmode: " << zone->manualmode;
                 ofs << "\n\n";
-                dumpPIDStruct(ofs, &zone->pid_info);
+                // dumpPIDStruct(ofs, &zone->pid_info);
                 ofs << std::endl;
                 ofs.close();
             }
-#endif // RIKFAN_DEBUG		
+#endif // RIKFAN_DEBUG      
+
 
             std::this_thread::sleep_for(delay);
         }
@@ -298,7 +317,7 @@ void Zone::zone_control_loop(Zone *zone)
  * ZoneManager
  */
 
-ZoneManager::ZoneManager(fs::path conf_fname, std::shared_ptr<sdbusplus::asio::connection>& conn_) : conn(conn_)
+ZoneManager::ZoneManager(fs::path conf_fname, boost::asio::io_service& io_)
 {
     // fs::path conf_fname = "/etc/rikfan/conf.json";
     if (!fs::exists(conf_fname))
@@ -310,6 +329,18 @@ ZoneManager::ZoneManager(fs::path conf_fname, std::shared_ptr<sdbusplus::asio::c
             return;
         }
     }
+
+    conn = std::make_shared<sdbusplus::asio::connection>(io_, sdbusplus::bus::new_system().release());
+
+#ifdef RIKFAN_DEBUG
+    {
+        fs::path debug_path("/tmp/rikfan");
+        if (!fs::exists(debug_path))
+        {
+            fs::create_directory(debug_path);
+        }
+    }
+#endif // RIKFAN_DEBUG
 
     std::ifstream conf_stream {conf_fname};
     json conf_json;
@@ -353,7 +384,7 @@ ZoneManager::ZoneManager(fs::path conf_fname, std::shared_ptr<sdbusplus::asio::c
             p["slewNeg"].get_to(pid_conf.slewNeg);
             p["slewPos"].get_to(pid_conf.slewPos);
 
-            zones.emplace_back(std::make_unique<Zone>(zone_name, zone_type, pid_conf, sens_vect, pwm_vect, setpoint, pid_conf.ts * 1000, conn_));
+            zones.emplace_back(std::make_unique<Zone>(zone_name, zone_type, pid_conf, sens_vect, pwm_vect, setpoint, pid_conf.ts * 1000, conn));
         }
     }
 }

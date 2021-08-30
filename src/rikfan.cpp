@@ -21,7 +21,7 @@ RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
                      sdbusplus::asio::object_server& srv_,
                      std::shared_ptr<sdbusplus::asio::connection>& conn_) :
     io(io_), server(srv_), conn(conn_),
-    zones(std::make_unique<ZoneManager>("/etc/rikfan/conf.json", conn_))
+    zones(std::make_unique<ZoneManager>("/etc/rikfan/conf.json", io_))
 {
     iface = server.add_interface(RikfanPath, RikfanIface);
     iface->register_method("ReadMode", [this]() { return this->mode; });
@@ -33,7 +33,7 @@ RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
 
     iface->initialize(true);
 
-    // zones->start();
+    zones->start();
 
     this->mode = readConf();
     setFanMode(std::to_string(this->mode));
@@ -42,8 +42,7 @@ RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
 
 void RikfanMgr::setFanMode(const std::string& mode)
 {
-    phosphor::logging::log<phosphor::logging::level::INFO>(
-        ("Rikfan set mode " + mode).c_str());
+    phosphor::logging::log<phosphor::logging::level::INFO>(("Rikfan set mode " + mode).c_str());
 
     try 
     {

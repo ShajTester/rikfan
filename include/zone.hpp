@@ -1,6 +1,8 @@
 
 #pragma once
 
+#define RIKFAN_DEBUG
+
 #include <boost/asio/io_service.hpp>
 #include <sdbusplus/asio/object_server.hpp>
 
@@ -17,16 +19,17 @@ class SensorBase
 public:
     virtual double get_value() = 0;
     virtual void set_value(double in) = 0;
+    virtual std::string repr() = 0;
 };
 
 
 class SensorFS: public SensorBase
 {
 public:
-    SensorFS() = delete;
     SensorFS(const std::string &p, double err_val);
-    double get_value();
-    void set_value(double in);
+    double get_value() override;
+    void set_value(double in) override;
+    std::string repr() override;
 private:
     std::string real_path;
     int state;
@@ -37,10 +40,10 @@ private:
 class SensorDBus: public SensorBase
 {
 public:
-    SensorDBus() = delete;
     SensorDBus(const std::string &p, double err_val, std::shared_ptr<sdbusplus::asio::connection>& b);
-    double get_value();
-    void set_value(double in) {throw "Not implemented yet.";}
+    double get_value() override ;
+    void set_value(double in) override {throw "Not implemented yet.";}
+    std::string repr() override;
 private:
     std::string real_path;
     int state;
@@ -61,10 +64,11 @@ private:
 
 public:
 
-	Zone() = delete;
-	Zone(Zone &) = delete;
+	// Zone() = delete;
+	Zone(const Zone &) = delete;
 	Zone(Zone &&) = delete;
 	void operator=(const Zone&) = delete;
+	void operator=(Zone&&) = delete;
 
 	Zone(std::string n,
 	     std::string t,
@@ -114,12 +118,13 @@ class ZoneManager
 	std::vector<std::unique_ptr<Zone>> zones;
 
 public:
-	ZoneManager() = delete;
-	ZoneManager(ZoneManager &) = delete;
+	// ZoneManager() = delete;
+	ZoneManager(const ZoneManager &) = delete;
 	ZoneManager(ZoneManager &&) = delete;
 	void operator=(const ZoneManager&) = delete;
+	void operator=(ZoneManager&&) = delete;
 
-	ZoneManager(fs::path conf_fname, std::shared_ptr<sdbusplus::asio::connection>& conn_);
+	ZoneManager(fs::path conf_fname, boost::asio::io_service& io_);
 
 	void setFanMode(unsigned int mode);
 	void start();
