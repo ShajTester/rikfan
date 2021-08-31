@@ -114,6 +114,9 @@ private:
 
 class ZoneManager
 {
+	/* async io context for operation */
+	boost::asio::io_context io;
+
 	std::shared_ptr<sdbusplus::asio::connection> conn;
 	std::vector<std::unique_ptr<Zone>> zones;
 

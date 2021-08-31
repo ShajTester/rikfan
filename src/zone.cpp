@@ -127,13 +127,15 @@ double SensorDBus::get_value()
             auto resp = passive_bus->call(mapper);
             resp.read(respData);
             val = std::get<double>(respData);
-            phosphor::logging::log<phosphor::logging::level::INFO>(std::to_string(val).c_str());
+            // phosphor::logging::log<phosphor::logging::level::INFO>(std::to_string(val).c_str());
+            state = 10;
         }
         catch (sdbusplus::exception_t& e)
         {
-            phosphor::logging::log<phosphor::logging::level::ERR>("SensorDBus::get_value error");
-            phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
+            // phosphor::logging::log<phosphor::logging::level::ERR>("SensorDBus::get_value error");
+            // phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
             val = error_value;
+            state--;
         }
     }
     return val;
@@ -271,7 +273,14 @@ void Zone::zone_control_loop(Zone *zone)
         }
         else
         {
+#ifdef RIKFAN_DEBUG
+            auto input_time_start = std::chrono::system_clock::now();
+#endif // RIKFAN_DEBUG      
             auto input = zone->processInputs();
+#ifdef RIKFAN_DEBUG
+            auto input_time_end = std::chrono::system_clock::now();
+            std::chrono::duration<double> get_input_time = input_time_end - input_time_start;
+#endif // RIKFAN_DEBUG      
             auto output = zone->processPID(input);
             zone->processOutputs(output);
 
@@ -287,6 +296,7 @@ void Zone::zone_control_loop(Zone *zone)
                 ofs << "setpoint: " << zone->setpt;
                 ofs << "\ninput:    " << input;
                 ofs << "\noutput:   " << output;
+                ofs << "\ninput time: " << get_input_time.count();
                 std::chrono::duration<double> diff = new_sample - zone->sample_time;
                 zone->sample_time = new_sample;
                 ofs << "\nsample_time: " << diff.count();
@@ -297,7 +307,7 @@ void Zone::zone_control_loop(Zone *zone)
                 ofs << "\npwms[0].repr: " << zone->pwms[0]->repr();
                 ofs << "\nmanualmode: " << zone->manualmode;
                 ofs << "\n\n";
-                // dumpPIDStruct(ofs, &zone->pid_info);
+                dumpPIDStruct(ofs, &zone->pid_info);
                 ofs << std::endl;
                 ofs.close();
             }
@@ -330,7 +340,7 @@ ZoneManager::ZoneManager(fs::path conf_fname, boost::asio::io_service& io_)
         }
     }
 
-    conn = std::make_shared<sdbusplus::asio::connection>(io_, sdbusplus::bus::new_system().release());
+    conn = std::make_shared<sdbusplus::asio::connection>(io, sdbusplus::bus::new_system().release());
 
 #ifdef RIKFAN_DEBUG
     {
