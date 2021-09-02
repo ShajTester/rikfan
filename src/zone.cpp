@@ -127,6 +127,26 @@ double SensorDBus::get_value()
             auto resp = passive_bus->call(mapper);
             resp.read(respData);
             val = std::get<double>(respData);
+            if(!std::isnormal(val))
+            {
+#ifdef RIKFAN_DEBUG
+                report->nan_cnt++;
+#endif // RIKFAN_DEBUG            
+                val = error_value;
+            }
+            else if(val > 100.0)
+            {
+#ifdef RIKFAN_DEBUG
+                report->val_cnt++;
+#endif // RIKFAN_DEBUG            
+                val = error_value;
+            }
+#ifdef RIKFAN_DEBUG
+            else
+            {
+                report->main_cnt++;
+            }
+#endif // RIKFAN_DEBUG            
             // phosphor::logging::log<phosphor::logging::level::INFO>(std::to_string(val).c_str());
             state = 10;
         }
@@ -145,6 +165,126 @@ std::string SensorDBus::repr()
 {
     return std::string{"DBus: (" + std::to_string(state) + ") " + real_path};
 }
+
+
+class CPUSensors : public SensorBase
+{
+    std::vector<std::unique_ptr<SensorDBus>> sensors;
+    std::string real_path;
+    double error_value;
+    std::shared_ptr<sdbusplus::asio::connection> passive_bus;
+    bool initialized;
+
+#ifdef RIKFAN_DEBUG
+    std::unordered_map<std::string, std::shared_ptr<DBusReport>> report;
+#endif
+
+public:
+    CPUSensors(const std::string &p, double err_val, std::shared_ptr<sdbusplus::asio::connection>& b) :
+        real_path(p), error_value(err_val), passive_bus(b), initialized(false)
+    {
+        sensors.reserve(10);
+    }
+
+    double get_value() override
+    {
+        double retval = 0.0;
+        if (sensors.size() != 0)
+        {
+            for (auto &sens : sensors)
+            {
+                retval = std::max(retval, sens->get_value());
+            }
+
+#ifdef RIKFAN_DEBUG            
+            std::ofstream ofs{"/tmp/CPUSensors"};
+            for(const auto &[key, value] : report)
+            {
+                ofs << key << " " << value->main_cnt << " " << value->nan_cnt << " " << value->val_cnt << "\n";
+            }
+#endif // RIKFAN_DEBUG
+            if(retval > 1.0)
+                initialized = false;
+        }
+        else
+        {
+            scan_subtree();
+            retval = error_value;
+        }
+        return retval;
+    }
+
+
+    void set_value(double in) override
+    {
+        throw "Not implemented yet.";
+    }
+
+
+    std::string repr() override
+    {
+        return std::string{"CPUSensors class"};
+    }
+
+    bool init_complete() override
+    {
+        return initialized;
+    }
+
+private:
+    void scan_subtree()
+    {
+        auto mapper = passive_bus->new_method_call(
+                          "xyz.openbmc_project.CPUSensor",
+                          real_path.c_str(),
+                          "org.freedesktop.DBus.Introspectable", "Introspect");
+        std::string respData;
+        try
+        {
+            std::string needle{"node name=\""};
+            auto resp = passive_bus->call(mapper);
+            resp.read(respData);
+            auto it = respData.begin();
+            while ((it = std::search(it, respData.end(), needle.begin(), needle.end())) != respData.end())
+            {
+                auto ite = std::find(it + needle.size(), respData.end(), '\"');
+                sensors.push_back(
+                    std::make_unique<SensorDBus>(
+                        real_path + "/" + std::string{it + needle.size(), ite},
+                        error_value,
+                        passive_bus));
+
+#ifdef RIKFAN_DEBUG
+                auto rep_blk = std::make_shared<DBusReport>();
+                rep_blk->main_cnt = 0;
+                rep_blk->nan_cnt = 0;
+                rep_blk->val_cnt = 0;
+                sensors.back()->set_report(rep_blk);
+                report[std::string{it + needle.size(), ite}] = std::move(rep_blk);
+#endif // RIKFAN_DEBUG            
+
+                it = ite;
+            }
+            phosphor::logging::log<phosphor::logging::level::INFO>("Introspected completely");
+            // Сбросить ПИД
+            initialized = true;
+
+#ifdef RIKFAN_DEBUG            
+            // std::ofstream ofs{"/tmp/CPUSensors"};
+            // for(const auto &sens : sensors)
+            // {
+            //     ofs << sens->repr() << "\n";
+            // }
+#endif // RIKFAN_DEBUG            
+        }
+        catch (sdbusplus::exception_t& e)
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>("CPUSensors::scan_subtree error");
+            phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
+        }
+    }
+};
+
 
 
 Zone::Zone(std::string n,
@@ -168,17 +308,17 @@ Zone::Zone(std::string n,
     else
         error_read_temp = margin_error_read_temp;
 
-    for(const auto &path : s)
+    for (const auto &path : s)
     {
-    	if(path.substr(0, 5) == "/xyz/")
-    		sensors.push_back(std::make_unique<SensorDBus>(path, error_read_temp, conn_));
-    	else
-    		sensors.push_back(std::make_unique<SensorFS>(path, error_read_temp));
+        if (path.substr(0, 5) == "/xyz/")
+            sensors.push_back(std::make_unique<CPUSensors>(path, error_read_temp, conn_));
+        else
+            sensors.push_back(std::make_unique<SensorFS>(path, error_read_temp));
     }
 
-    for(const auto &path: f)
+    for (const auto &path : f)
     {
-        if(path.substr(0, 5) == "/xyz/")
+        if (path.substr(0, 5) == "/xyz/")
             pwms.push_back(std::make_unique<SensorDBus>(path, error_read_temp, conn_));
         else
             pwms.push_back(std::make_unique<SensorFS>(path, error_read_temp));
@@ -220,6 +360,7 @@ void Zone::command(const char *cmd)
     if (std::strcmp(cmd, "manual") == 0)
     {
         manualmode = true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(millisec));
     }
     else if (std::strcmp(cmd, "auto") == 0)
     {
@@ -235,15 +376,22 @@ void Zone::command(const char *cmd)
 
 double Zone::processInputs()
 {
-    double retval = 0;
+    double retval = 0.0;
+    bool init_complete = false;
     for (auto &sens : sensors)
     {
+        init_complete = init_complete || sens->init_complete();
         retval = std::max(retval, sens->get_value());
     }
 
     // for type == "one"
-    if (retval == 0)
+    if (retval < 1.0)
         retval = margin_error_read_temp;
+    else if(init_complete)
+    {
+        pid_info.lastOutput = pid_info.outLim.min;
+        phosphor::logging::log<phosphor::logging::level::INFO>(("Zone " + name + " PID reset").c_str());
+    }
 
     return retval;
 }

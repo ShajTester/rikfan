@@ -13,6 +13,22 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#ifdef RIKFAN_DEBUG
+#include <unordered_map>
+#endif
+
+
+#ifdef RIKFAN_DEBUG
+
+struct DBusReport
+{
+	int main_cnt;
+    int nan_cnt;
+    int val_cnt;
+};
+
+#endif // RIKFAN_DEBUG
+
 
 class SensorBase
 {
@@ -20,6 +36,7 @@ public:
     virtual double get_value() = 0;
     virtual void set_value(double in) = 0;
     virtual std::string repr() = 0;
+    virtual bool init_complete() {return false;}
 };
 
 
@@ -44,11 +61,24 @@ public:
     double get_value() override ;
     void set_value(double in) override {throw "Not implemented yet.";}
     std::string repr() override;
+
+#ifdef RIKFAN_DEBUG
+    void set_report(std::shared_ptr<DBusReport> r)
+    {
+    	report = r;
+    }
+#endif
+
 private:
     std::string real_path;
     int state;
     double error_value;
     std::shared_ptr<sdbusplus::asio::connection> passive_bus;
+
+#ifdef RIKFAN_DEBUG
+    std::shared_ptr<DBusReport> report;
+#endif
+
 };
 
 
