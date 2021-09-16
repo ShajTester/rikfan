@@ -73,6 +73,15 @@ int rawPWM(std::string perc)
     return readVal;
 }
 
+int rawPWM(int perc)
+{
+    if(perc < 0)
+        return 0;
+    if(perc > 100)
+        return 255;
+    return std::lround(perc * 255.0 / 100.0);
+}
+
 std::string percPWM(int raw)
 {
     if (raw < 0)
@@ -199,20 +208,28 @@ void setFansForList()
 
 /**
  * Для конфигурации одной для всех
+ *
+ * fanmode от 0% до 100% преобразуется в PWM от 0 до 255
  */
 void setPWM(unsigned int fanmode)
 {
     char cstr[256];
     std::fstream fd;
+    int readVal;
 
-    if(fanmode >= (sizeof(fanmode_values) / sizeof(fanmode_values[0])))
+    if(fanmode == 0)
     {
-        syslog(LOG_ERR, "Wrong fanmode %d", fanmode);
-        fanmode = (sizeof(fanmode_values) / sizeof(fanmode_values[0])) - 1;
+        readVal = rawPWM(0);
+    }
+    else if(fanmode >= (sizeof(fanmode_values) / sizeof(fanmode_values[0])))
+    {
+        readVal = rawPWM(fanmode);
+    }
+    else
+    {
+        readVal = fanmode_values[fanmode];
     }
 
-    auto readVal = fanmode_values[fanmode];
-    
     // Изменение задания в ручном режиме
     for (const auto &it : fanDescr)
     {

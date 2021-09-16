@@ -550,9 +550,6 @@ ZoneManager::ZoneManager(fs::path conf_fname, boost::asio::io_service& io_)
 
 void ZoneManager::setFanMode(unsigned int mode)
 {
-    if (mode > 3)
-        mode = 0;   // 0 - автоматический режим
-
     if (mode == 0)
     {
         for (const auto &z : zones)
