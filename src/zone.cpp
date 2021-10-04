@@ -22,6 +22,9 @@
 #include "fan.h"
 
 #include "zone.hpp"
+#include "log-conf.hpp"
+
+#include <regex>
 
 
 namespace fs = std::filesystem;
@@ -29,7 +32,7 @@ using namespace std::literals::chrono_literals;
 using json = nlohmann::json;
 
 
-SensorFS::SensorFS(const std::string &p, double err_val) : error_value{err_val}, state{0}
+SensorFS::SensorFS(const std::string &p, double err_val) : error_value{err_val}, state{0}, error_sensor_state(false)
 {
     auto pos = p.find('*');
     if (pos == std::string::npos)
@@ -55,6 +58,21 @@ SensorFS::SensorFS(const std::string &p, double err_val) : error_value{err_val},
         real_path = p;
         state = 0;
     }
+
+    const std::regex r{"\\d-(\\d|[a-f]){4}"};
+    std::smatch m;
+    try
+    {
+        if(std::regex_search(real_path, m, r))
+            sensor_id = m[0].str();
+        else
+            sensor_id = real_path;
+    }
+    catch(const std::regex_error& e)
+    {
+        sensor_id = real_path;
+        phosphor::logging::log<phosphor::logging::level::WARNING>((std::string{"Rikfan regex "} + e.what()).c_str());
+    }
 }
 
 double SensorFS::get_value()
@@ -72,13 +90,26 @@ double SensorFS::get_value()
             {
                 val = static_cast<double>(read_val) / 1000.0;
                 state = 10;
+                error_sensor_state = false;
             }
             else
             {
                 val = error_value;
-                state--;
             }
             ifs.close();
+        }
+        else
+        {
+            val = error_value;
+            state--;
+        }
+    }
+    else
+    {
+        if(!error_sensor_state)
+        {
+            logger_send(LOG_WARNING, "SensorFS", sensor_id.c_str());
+            error_sensor_state = true;
         }
     }
     return val;
@@ -152,10 +183,9 @@ double SensorDBus::get_value()
         }
         catch (sdbusplus::exception_t& e)
         {
-            // phosphor::logging::log<phosphor::logging::level::ERR>("SensorDBus::get_value error");
-            // phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
+            logger_send(LOG_WARNING, "SensorDBus", real_path.c_str());
             val = error_value;
-            state--;
+            // state--;
         }
     }
     return val;
@@ -174,6 +204,7 @@ class CPUSensors : public SensorBase
     double error_value;
     std::shared_ptr<sdbusplus::asio::connection> passive_bus;
     bool initialized;
+    bool error_host_state;
 
 #ifdef RIKFAN_DEBUG
     std::unordered_map<std::string, std::shared_ptr<DBusReport>> report;
@@ -181,7 +212,7 @@ class CPUSensors : public SensorBase
 
 public:
     CPUSensors(const std::string &p, double err_val, std::shared_ptr<sdbusplus::asio::connection>& b) :
-        real_path(p), error_value(err_val), passive_bus(b), initialized(false)
+        real_path(p), error_value(err_val), passive_bus(b), initialized(false), error_host_state(true)
     {
         sensors.reserve(10);
     }
@@ -204,7 +235,30 @@ public:
             }
 #endif // RIKFAN_DEBUG
             if(retval > 1.0)
+            {
+                // олучили правильный ответ - снимаем флаг,
+                // который сбрасывает ПИД. Т.е. ПИД с этого
+                // момента больше не сбрасываем.
                 initialized = false;
+                if(error_host_state)
+                {
+                    logger_send(LOG_INFO, "CPUSensors", real_path.c_str());
+                    error_host_state = false;
+                }
+            }
+            else
+            {
+                initialized = true;
+                // Получили ошибку при чтении датчиков. Ни один
+                // не прочитали. М.б. выключен хост. М.б. что-то другое.
+                if(!error_host_state)
+                {
+                    logger_send(LOG_WARNING, "CPUSensors", real_path.c_str());
+
+                    // Это чтобы не забивать логи
+                    error_host_state = true;
+                }
+            }
         }
         else
         {
@@ -279,8 +333,8 @@ private:
         }
         catch (sdbusplus::exception_t& e)
         {
-            phosphor::logging::log<phosphor::logging::level::ERR>("CPUSensors::scan_subtree error");
-            phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
+            // phosphor::logging::log<phosphor::logging::level::ERR>("CPUSensors::scan_subtree error");
+            // phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
         }
     }
 };

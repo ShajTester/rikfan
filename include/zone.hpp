@@ -1,7 +1,7 @@
 
 #pragma once
 
-#define RIKFAN_DEBUG
+//#define RIKFAN_DEBUG
 
 #include <boost/asio/io_service.hpp>
 #include <sdbusplus/asio/object_server.hpp>
@@ -51,6 +51,8 @@ private:
     std::string real_path;
     int state;
     double error_value;
+    std::string sensor_id;
+    bool error_sensor_state;
 };
 
 

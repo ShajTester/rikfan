@@ -16,6 +16,29 @@
 
 #include "rikfan.hpp"
 #include <phosphor-logging/log.hpp>
+#include "log-conf.hpp"
+
+
+void logger_send(int loglevel, const std::string &sensor_type, const std::string &sensor_address)
+{
+    std::string msg;
+    std::string rmid;
+    if(loglevel == LOG_INFO)
+    {
+        rmid = std::string{redfish_message_id} + "OK";
+        msg = std::string{"Sensor "} + sensor_type + " (" + sensor_address + ") OK";
+    }
+    else
+    {
+        rmid = std::string{redfish_message_id} + "Error";
+        msg = std::string{"Sensor "} + sensor_type + " (" + sensor_address + ") error";
+    }
+
+    sd_journal_send("MESSAGE=%s", msg.c_str(), "PRIORITY=%i", loglevel,
+                "REDFISH_MESSAGE_ID=%s", rmid.c_str(),
+                "REDFISH_MESSAGE_ARGS=%s,%s", sensor_type.c_str(), sensor_address.c_str(), NULL);
+}
+
 
 int main()
 {
