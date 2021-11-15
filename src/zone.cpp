@@ -562,8 +562,8 @@ ZoneManager::ZoneManager(fs::path conf_fname, boost::asio::io_service& io_)
     }
     catch (const std::exception &e)
     {
-        // std::cerr << e.what() << std::endl;
-        syslog(LOG_ERR, "exception: %s", e.what());
+        std::cerr << e.what() << std::endl;
+        // syslog(LOG_ERR, "exception: %s", e.what());
     }
 
     if (conf_json.count("zones") > 0)

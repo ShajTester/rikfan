@@ -52,7 +52,7 @@ target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} phosphor_logging)
 
 set(SERVICE_FILES
-    ${PROJECT_SOURCE_DIR}/xyz.openbmc_project.rikfan.service
+    ${PROJECT_SOURCE_DIR}/rikfan.service
     )
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
