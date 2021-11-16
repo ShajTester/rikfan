@@ -242,7 +242,9 @@ public:
                 initialized = false;
                 if(error_host_state)
                 {
+#ifdef RIKFAN_DEBUG
                     logger_send(LOG_INFO, "CPUSensors", real_path.c_str());
+#endif // RIKFAN_DEBUG
                     error_host_state = false;
                 }
             }
@@ -253,8 +255,9 @@ public:
                 // не прочитали. М.б. выключен хост. М.б. что-то другое.
                 if(!error_host_state)
                 {
+#ifdef RIKFAN_DEBUG
                     logger_send(LOG_WARNING, "CPUSensors", real_path.c_str());
-
+#endif // RIKFAN_DEBUG
                     // Это чтобы не забивать логи
                     error_host_state = true;
                 }
