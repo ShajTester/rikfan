@@ -2,7 +2,6 @@
 	"description": {
 		"project"   : "Scalable",
         "version"   : "3",
-        "probe"     : "Название платы из FRU",
 		"name"      : "Название зоны. Д.б. без пробелов. Д.б. уникальным",
 		"type"      : [
             "Способ обработки 'inputs'.",
@@ -31,40 +30,8 @@
             "slewPos"            : "Задатчик интенсивности на повышение выходного сигнала"
         }
 	},
-    "probe": "ScalEATX",
+    "probe": "ScalPro",
     "zones": [
-        {
-            "name": "chassis0",
-            "type": "one",
-            "inputs": [
-                "/sys/bus/i2c/devices/6-0048/*/temp1_input",
-                "/sys/bus/i2c/devices/6-0049/*/temp1_input",
-                "/sys/bus/i2c/devices/6-004a/*/temp1_input",
-                "/sys/bus/i2c/devices/6-004b/*/temp1_input"
-            ],
-            "fans_pwm": [
-                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm1",
-                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm2",
-                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm3",
-                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm4",
-                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm5",
-                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm6"
-            ],
-            "setpoint": 25,
-            "pid": {
-                "samplePeriod": 1.0,
-                "proportionalCoeff": -8.0,
-                "integralCoeff": 0.0,
-                "feedFwdOffsetCoeff": 0.0,
-                "feedFwdGainCoeff": 0.0,
-                "integralLimit_min": 0.0,
-                "integralLimit_max": 100.0,
-                "outLim_min": 50.0,
-                "outLim_max": 255.0,
-                "slewNeg": -1.0,
-                "slewPos": 0.0
-            }
-        },
         {
             "name": "CPUS",
             "type": "one",
@@ -72,6 +39,12 @@
                 "/xyz/openbmc_project/sensors/temperature"
             ],
             "fans_pwm": [
+                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm1",
+                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm2",
+                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm3",
+                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm4",
+                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm5",
+                "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm6",
                 "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm7",
                 "/sys/bus/platform/devices/1e786000.pwm-tacho-controller/*/pwm8"
             ],

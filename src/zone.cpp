@@ -534,18 +534,40 @@ void Zone::zone_control_loop(Zone *zone)
 
 ZoneManager::ZoneManager(fs::path conf_fname, boost::asio::io_service& io_)
 {
-    // fs::path conf_fname = "/etc/rikfan/conf.json";
-    if (!fs::exists(conf_fname))
+    std::vector<fs::path> conf_fname_list;
+    fs::path conf_dir {"/etc/rikfan"};
+
+    conn = std::make_shared<sdbusplus::asio::connection>(io, sdbusplus::bus::new_system().release());
+
+    auto board_name = get_board_name(conn);
+
+    for (const auto &p : fs::directory_iterator(conf_dir))
     {
-        conf_fname = "/tmp/rikfan/conf.json";
-        if (!fs::exists(conf_fname))
+        if (p.path().extension() == ".json")
+        {
+            std::cout << "shaj: " << p << std::endl;
+            if(check_config(p.path(), board_name))
+            {
+                conf_fname_list.push_back(p.path());
+                std::cout << "shaj: added " << p.path() << std::endl;
+            }
+        }
+        else
+        {
+            std::cout << "shaj: " << p << " ~~~ " << p.path().extension() << std::endl;
+        }
+    }
+
+    // if (!fs::exists(conf_fname))
+    if (conf_fname_list.empty())
+    {
+        conf_fname_list.emplace_back("/tmp/rikfan/conf.json");
+        if (!fs::exists(conf_fname_list[0]))
         {
             std::cerr << "Need config file in '/etc/rikfan/conf.json' or '/tmp/rikfan/conf.json'";
             return;
         }
     }
-
-    conn = std::make_shared<sdbusplus::asio::connection>(io, sdbusplus::bus::new_system().release());
 
 #ifdef RIKFAN_DEBUG
     {
@@ -557,49 +579,52 @@ ZoneManager::ZoneManager(fs::path conf_fname, boost::asio::io_service& io_)
     }
 #endif // RIKFAN_DEBUG
 
-    std::ifstream conf_stream {conf_fname};
-    json conf_json;
-    try
+    for(const auto &conf_file : conf_fname_list)
     {
-        conf_stream >> conf_json;
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << e.what() << std::endl;
-        // syslog(LOG_ERR, "exception: %s", e.what());
-    }
-
-    if (conf_json.count("zones") > 0)
-    {
-        for (const auto &z : conf_json["zones"])
+        std::ifstream conf_stream {conf_file};
+        json conf_json;
+        try
         {
-            ec::pidinfo pid_conf;
-            std::vector<std::string> sens_vect;
-            std::vector<std::string> pwm_vect;
-            double setpoint;
-            std::string zone_name;
-            std::string zone_type;
+            conf_stream >> conf_json;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << e.what() << std::endl;
+            // syslog(LOG_ERR, "exception: %s", e.what());
+        }
 
-            z["inputs"].get_to(sens_vect);
-            z["fans_pwm"].get_to(pwm_vect);
-            z["name"].get_to(zone_name);
-            z["type"].get_to(zone_type);
-            z["setpoint"].get_to(setpoint);
+        if (conf_json.count("zones") > 0)
+        {
+            for (const auto &z : conf_json["zones"])
+            {
+                ec::pidinfo pid_conf;
+                std::vector<std::string> sens_vect;
+                std::vector<std::string> pwm_vect;
+                double setpoint;
+                std::string zone_name;
+                std::string zone_type;
 
-            auto p = z["pid"];
-            p["samplePeriod"].get_to(pid_conf.ts);
-            p["proportionalCoeff"].get_to(pid_conf.proportionalCoeff);
-            p["integralCoeff"].get_to(pid_conf.integralCoeff);
-            p["feedFwdOffsetCoeff"].get_to(pid_conf.feedFwdOffset);
-            p["feedFwdGainCoeff"].get_to(pid_conf.feedFwdGain);
-            p["integralLimit_min"].get_to(pid_conf.integralLimit.min);
-            p["integralLimit_max"].get_to(pid_conf.integralLimit.max);
-            p["outLim_min"].get_to(pid_conf.outLim.min);
-            p["outLim_max"].get_to(pid_conf.outLim.max);
-            p["slewNeg"].get_to(pid_conf.slewNeg);
-            p["slewPos"].get_to(pid_conf.slewPos);
+                z["inputs"].get_to(sens_vect);
+                z["fans_pwm"].get_to(pwm_vect);
+                z["name"].get_to(zone_name);
+                z["type"].get_to(zone_type);
+                z["setpoint"].get_to(setpoint);
 
-            zones.emplace_back(std::make_unique<Zone>(zone_name, zone_type, pid_conf, sens_vect, pwm_vect, setpoint, pid_conf.ts * 1000, conn));
+                auto p = z["pid"];
+                p["samplePeriod"].get_to(pid_conf.ts);
+                p["proportionalCoeff"].get_to(pid_conf.proportionalCoeff);
+                p["integralCoeff"].get_to(pid_conf.integralCoeff);
+                p["feedFwdOffsetCoeff"].get_to(pid_conf.feedFwdOffset);
+                p["feedFwdGainCoeff"].get_to(pid_conf.feedFwdGain);
+                p["integralLimit_min"].get_to(pid_conf.integralLimit.min);
+                p["integralLimit_max"].get_to(pid_conf.integralLimit.max);
+                p["outLim_min"].get_to(pid_conf.outLim.min);
+                p["outLim_max"].get_to(pid_conf.outLim.max);
+                p["slewNeg"].get_to(pid_conf.slewNeg);
+                p["slewPos"].get_to(pid_conf.slewPos);
+
+                zones.emplace_back(std::make_unique<Zone>(zone_name, zone_type, pid_conf, sens_vect, pwm_vect, setpoint, pid_conf.ts * 1000, conn));
+            }
         }
     }
 }
@@ -627,4 +652,58 @@ void ZoneManager::start()
     // Запускаем циклы управления вентиляторами по зонам
     for (auto &z : zones)
         z->start();
+}
+
+
+bool ZoneManager::check_config(fs::path fname, std::string board_name)
+{
+    bool retval = false;
+    std::ifstream conf_stream {fname};
+    json conf_json;
+    try
+    {
+        conf_stream >> conf_json;
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << e.what() << std::endl;
+        return retval;
+    }
+
+    if (conf_json.count("probe") > 0)
+    {
+        if(conf_json["probe"] == board_name)
+            retval = true;
+    }
+    return retval;
+}
+
+
+std::string ZoneManager::get_board_name(std::shared_ptr<sdbusplus::asio::connection> &passive_bus)
+{
+    const std::array<const char*, 2> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Board",
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+    auto mapper = passive_bus->new_method_call(
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths");
+    mapper.append("/xyz/openbmc_project/inventory");
+    mapper.append(0);
+    mapper.append(interfaces);
+    std::vector<std::string> respData;
+    try
+    {
+        auto resp = passive_bus->call(mapper);
+        resp.read(respData);
+        for(const auto &it : respData)
+        {
+            std::cout << "shaj: it " << it << std::endl;
+        }
+    }
+    catch (sdbusplus::exception_t& e)
+    {
+        std::cerr << "shaj: get_board_name error: " << e.what() << std::endl;
+    }
+    return std::string {"ScalPro"};
 }

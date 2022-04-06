@@ -2,7 +2,6 @@
 	"description": {
 		"project"   : "Scalable",
         "version"   : "3",
-        "probe"     : "Название платы из FRU",
 		"name"      : "Название зоны. Д.б. без пробелов. Д.б. уникальным",
 		"type"      : [
             "Способ обработки 'inputs'.",

@@ -58,5 +58,9 @@ set(SERVICE_FILES
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 install(FILES ${SERVICE_FILES} DESTINATION /lib/systemd/system/)
 install(FILES ${PROJECT_SOURCE_DIR}/rikfan.conf DESTINATION /etc/rikfan COMPONENT config)
-install(FILES ${PROJECT_SOURCE_DIR}/conf.json DESTINATION /etc/rikfan COMPONENT config)
-
+# install(FILES ${PROJECT_SOURCE_DIR}/conf.json DESTINATION /etc/rikfan COMPONENT config)
+install(
+    DIRECTORY  ${PROJECT_SOURCE_DIR}/conf/ 
+    DESTINATION /etc/rikfan/ 
+    FILES_MATCHING PATTERN "*.json"
+)

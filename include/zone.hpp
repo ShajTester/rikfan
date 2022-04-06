@@ -164,4 +164,8 @@ public:
 	void setFanMode(unsigned int mode);
 	void start();
 
+private:
+	bool check_config(fs::path fname, std::string board_name);
+	std::string get_board_name(std::shared_ptr<sdbusplus::asio::connection> &passive_bus);
+
 };
