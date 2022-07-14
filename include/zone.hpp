@@ -32,6 +32,8 @@ struct DBusReport
 
 class SensorBase
 {
+protected:
+	bool inverted = false;
 public:
     virtual double get_value() = 0;
     virtual void set_value(double in) = 0;

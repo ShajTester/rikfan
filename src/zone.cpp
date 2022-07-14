@@ -33,28 +33,42 @@ using json = nlohmann::json;
 
 SensorFS::SensorFS(const std::string &p, double err_val) : error_value{err_val}, state{0}, error_sensor_state(false)
 {
-    auto pos = p.find('*');
+    std::string path;
+
+    auto pos = p.rfind("_inv");
+    if(pos != std::string::npos)
+    {
+        path = p.substr(0, pos);
+        inverted = true;
+        std:: cout << "inverted " << path << std::endl;
+    }
+    else
+    {
+        path = p;
+    }
+
+    pos = path.find('*');
     if (pos == std::string::npos)
     {
-        real_path = p;
+        real_path = path;
         state = 10;
         return;
     }
 
-    auto ppos = p.rfind('/', pos);
-    auto fpos = p.find('/', pos);
+    auto ppos = path.rfind('/', pos);
+    auto fpos = path.find('/', pos);
     try
     {
-        for (const auto &dir : fs::directory_iterator(p.substr(0, ppos) + "/hwmon/"))
+        for (const auto &dir : fs::directory_iterator(path.substr(0, ppos) + "/hwmon/"))
         {
-            real_path = (dir.path() / p.substr(++fpos)).string();
+            real_path = (dir.path() / path.substr(++fpos)).string();
             state = 10;
             break;
         }
     }
     catch (std::exception &e)
     {
-        real_path = p;
+        real_path = path;
         state = 0;
     }
 
@@ -119,7 +133,8 @@ void SensorFS::set_value(double in)
     std::ofstream ofs;
     int val = static_cast<int>(std::round(in));
 
-    val = 256 - val;
+    if(inverted)
+        val = 256 - val;
 
     ofs.open(real_path);
     if (ofs.is_open())
