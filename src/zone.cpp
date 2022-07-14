@@ -19,7 +19,7 @@
 
 #include "pid.hpp"
 #include "util.hpp"
-#include "fan.h"
+// #include "fan.h"
 
 #include "zone.hpp"
 #include "log-conf.hpp"
@@ -119,6 +119,8 @@ void SensorFS::set_value(double in)
 {
     std::ofstream ofs;
     int val = static_cast<int>(std::round(in));
+
+    val = 256 - val;
 
     ofs.open(real_path);
     if (ofs.is_open())
@@ -525,6 +527,13 @@ void Zone::zone_control_loop(Zone *zone)
     zone->processOutputs(stop_output_const);
 }
 
+void Zone::setPWM(unsigned int mode)
+{
+    for (auto &pwm : pwms)
+    {
+        pwm->set_value(double(mode));
+    }
+}
 
 
 
@@ -604,6 +613,20 @@ ZoneManager::ZoneManager(fs::path conf_fname, boost::asio::io_service& io_)
     }
 }
 
+int ZoneManager::rawPWM(unsigned int perc)
+{
+    int readVal;
+    try
+    {
+        readVal = perc * 255.0 / 100.0;
+    }
+    catch (const std::exception &e)
+    {
+        readVal = nomPWMraw;
+    }
+    return readVal;
+}
+
 
 void ZoneManager::setFanMode(unsigned int mode)
 {
@@ -614,10 +637,23 @@ void ZoneManager::setFanMode(unsigned int mode)
     }
     else
     {
+        int readVal;
+        if(mode >= (sizeof(fanmode_values) / sizeof(fanmode_values[0])))
+        {
+            readVal = rawPWM(mode);
+        }
+        else
+        {
+            readVal = fanmode_values[mode];
+        }
+
         for (const auto &z : zones)
+        {
             z->command("manual");
-        // Вручную установить значения PWM
-        setPWM(mode);
+            // Вручную установить значения PWM
+            z->setPWM(readVal);
+        }
+        // setPWM(mode);
     }
 }
 
