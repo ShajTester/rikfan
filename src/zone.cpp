@@ -19,7 +19,6 @@
 
 #include "pid.hpp"
 #include "util.hpp"
-// #include "fan.h"
 
 #include "zone.hpp"
 #include "log-conf.hpp"
