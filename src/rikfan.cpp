@@ -18,9 +18,9 @@ namespace fs = std::filesystem;
 
 RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
                      sdbusplus::asio::object_server& srv_,
-                     std::shared_ptr<sdbusplus::asio::connection>& conn_) :
-    io(io_), server(srv_), conn(conn_),
-    zones(std::make_unique<ZoneManager>("/etc/rikfan/conf.json", io_))
+                     std::shared_ptr<sdbusplus::asio::connection>& conn_,
+                     ZoneManager &z_) :
+    io(io_), server(srv_), conn(conn_), zones(z_)
 {
     iface = server.add_interface(RikfanPath, RikfanIface);
     iface->register_method("ReadMode", [this]() { return this->mode; });
@@ -32,8 +32,7 @@ RikfanMgr::RikfanMgr(boost::asio::io_service& io_,
 
     iface->initialize(true);
 
-    zones->start();
-
+    zones.start();
     this->mode = readConf();
     setFanMode(std::to_string(this->mode));
 }
@@ -52,7 +51,7 @@ void RikfanMgr::setFanMode(const std::string& mode)
          // std::cout << e.what();
         this->mode = 2;
     }
-    zones->setFanMode(this->mode);
+    zones.setFanMode(this->mode);
     writeConf(this->mode);
     return;
 }

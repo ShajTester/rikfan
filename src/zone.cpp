@@ -31,7 +31,11 @@ using namespace std::literals::chrono_literals;
 using json = nlohmann::json;
 
 
-SensorFS::SensorFS(const std::string &p, double err_val) : error_value{err_val}, state{0}, error_sensor_state(false)
+SensorFS::SensorFS(const std::string &p, double err_val) : 
+        error_value{err_val},
+        state{0},
+        error_sensor_state{false},
+        inverted{false}
 {
     std::string path;
 
@@ -139,7 +143,14 @@ void SensorFS::set_value(double in)
     ofs.open(real_path);
     if (ofs.is_open())
     {
-        ofs << val;
+        if(inverted)
+        {
+            ofs << (255 - val);
+        }
+        else
+        {
+            ofs << val;
+        }
         ofs.close();
     }
 }
@@ -154,7 +165,8 @@ SensorDBus::SensorDBus(const std::string &p, double err_val, std::shared_ptr<sdb
     error_value{err_val},
     state{10},
     real_path{p},
-    passive_bus{b}
+    passive_bus{b},
+    inverted{false}
 {}
 
 double SensorDBus::get_value()
@@ -304,6 +316,10 @@ public:
         return initialized;
     }
 
+    void set_inverted(bool value) override {}
+    const std::string& get_path() override {return real_path;}
+
+
 private:
     void scan_subtree()
     {
@@ -363,8 +379,8 @@ private:
 Zone::Zone(std::string n,
            std::string t,
            ec::pidinfo &pidinfo_initial,
-           std::vector<std::string> &s,
-           std::vector<std::string> &f,
+           std::vector<std::string> &s,   // Sensors
+           std::vector<std::string> &f,   // PWMs
            double sp,
            long long ms,
            std::shared_ptr<sdbusplus::asio::connection>& conn_
@@ -549,6 +565,22 @@ void Zone::setPWM(unsigned int mode)
     }
 }
 
+void Zone::setPwmInv(const std::vector<std::string> &inverted)
+{
+    if(inverted.size() == 0)
+        return;
+
+    for(const auto &pwm : pwms)
+    {
+        auto inv = std::find(inverted.cbegin(), inverted.cend(), pwm->get_path());
+        if(inv != inverted.end())
+        {
+            pwm->set_inverted(true);
+        }
+    }
+}
+
+
 
 
 /**
@@ -557,7 +589,6 @@ void Zone::setPWM(unsigned int mode)
 
 ZoneManager::ZoneManager(fs::path conf_fname, boost::asio::io_service& io_)
 {
-    // fs::path conf_fname = "/etc/rikfan/conf.json";
     if (!fs::exists(conf_fname))
     {
         conf_fname = "/tmp/rikfan/conf.json";
@@ -677,4 +708,12 @@ void ZoneManager::start()
     // Запускаем циклы управления вентиляторами по зонам
     for (auto &z : zones)
         z->start();
+}
+
+void ZoneManager::setPwmInv(const std::vector<std::string> &inverted)
+{
+    for(auto &z : zones)
+    {
+        z->setPwmInv(inverted);
+    }
 }

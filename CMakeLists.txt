@@ -16,7 +16,6 @@ add_definitions(-DBOOST_NO_TYPEID)
 add_definitions(-DBOOST_ASIO_DISABLE_THREADS)
 
 set(SRC_FILES 
-    src/mainapp.cpp 
     src/rikfan.cpp 
     # src/fan.cpp 
     src/zone.cpp
@@ -43,7 +42,7 @@ pkg_check_modules(LOGGING phosphor-logging REQUIRED)
 include_directories(${LOGGING_INCLUDE_DIRS})
 link_directories(${LOGGING_LIBRARY_DIRS})
 
-add_executable(${PROJECT_NAME} ${SRC_FILES})    
+add_executable(${PROJECT_NAME} src/mainapp.cpp ${SRC_FILES})    
 
 target_link_libraries(${PROJECT_NAME} pthread)
 target_link_libraries(${PROJECT_NAME} ${SDBUSPLUSPLUS_LIBRARIES})

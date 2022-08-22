@@ -35,10 +35,12 @@ class RikfanMgr
     int readConf();
     void writeConf(int m);
 
-    std::unique_ptr<ZoneManager> zones;
+    // std::unique_ptr<ZoneManager> zones;
+    ZoneManager &zones;
 
   public:
     RikfanMgr(boost::asio::io_service& io,
                 sdbusplus::asio::object_server& srv,
-                std::shared_ptr<sdbusplus::asio::connection>& conn_);
+                std::shared_ptr<sdbusplus::asio::connection>& conn_,
+                ZoneManager &z_);
 };

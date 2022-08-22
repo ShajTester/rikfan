@@ -39,6 +39,8 @@ public:
     virtual void set_value(double in) = 0;
     virtual std::string repr() = 0;
     virtual bool init_complete() {return false;}
+    virtual void set_inverted(bool value) = 0;
+    virtual const std::string& get_path() = 0;
 };
 
 
@@ -49,12 +51,16 @@ public:
     double get_value() override;
     void set_value(double in) override;
     std::string repr() override;
+    void set_inverted(bool value) override {inverted = value;}
+    const std::string& get_path() override {return real_path;}
+
 private:
     std::string real_path;
     int state;
     double error_value;
     std::string sensor_id;
     bool error_sensor_state;
+    bool inverted;
 };
 
 
@@ -65,6 +71,8 @@ public:
     double get_value() override ;
     void set_value(double in) override {throw "Not implemented yet.";}
     std::string repr() override;
+    void set_inverted(bool value) override {inverted = value;}
+    const std::string& get_path() override {return real_path;}
 
 #ifdef RIKFAN_DEBUG
     void set_report(std::shared_ptr<DBusReport> r)
@@ -78,6 +86,7 @@ private:
     int state;
     double error_value;
     std::shared_ptr<sdbusplus::asio::connection> passive_bus;
+    bool inverted;
 
 #ifdef RIKFAN_DEBUG
     std::shared_ptr<DBusReport> report;
@@ -94,7 +103,8 @@ class Zone
 private:
 	static const constexpr long long loop_min_delay = 300;
 	static const constexpr double stop_output_const = 130.0;
-	static const constexpr double margin_error_read_temp = 100.0;
+	// static const constexpr double margin_error_read_temp = 100.0;
+	static const constexpr double margin_error_read_temp = 70.0;
 
 public:
 
@@ -119,7 +129,6 @@ public:
 	void stop();
 	void command(const char *cmd);
 	void setPWM(unsigned int mode);
-
 
 private:
 	bool manualmode;
@@ -174,5 +183,6 @@ public:
 
 	void setFanMode(unsigned int mode);
 	void start();
+	void setPwmInv(const std::vector<std::string> &inverted);
 
 };
