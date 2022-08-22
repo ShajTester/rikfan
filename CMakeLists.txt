@@ -18,7 +18,7 @@ add_definitions(-DBOOST_ASIO_DISABLE_THREADS)
 set(SRC_FILES 
     src/mainapp.cpp 
     src/rikfan.cpp 
-    src/fan.cpp 
+    # src/fan.cpp 
     src/zone.cpp
     src/pid.cpp
     src/util.cpp

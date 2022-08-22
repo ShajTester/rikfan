@@ -1,5 +1,4 @@
 
-#include "fan.h"
 #include "rikfan.hpp"
 #include "zone.hpp"
 

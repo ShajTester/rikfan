@@ -32,6 +32,8 @@ struct DBusReport
 
 class SensorBase
 {
+protected:
+	bool inverted = false;
 public:
     virtual double get_value() = 0;
     virtual void set_value(double in) = 0;
@@ -116,6 +118,7 @@ public:
 	void start();
 	void stop();
 	void command(const char *cmd);
+	void setPWM(unsigned int mode);
 
 
 private:
@@ -144,6 +147,10 @@ private:
 };
 
 
+#define minPWMraw   (70)
+#define nomPWMraw   (140)
+#define maxPWMraw   (255)
+
 class ZoneManager
 {
 	/* async io context for operation */
@@ -151,6 +158,10 @@ class ZoneManager
 
 	std::shared_ptr<sdbusplus::asio::connection> conn;
 	std::vector<std::unique_ptr<Zone>> zones;
+
+	static constexpr int fanmode_values[] = {minPWMraw, minPWMraw, nomPWMraw, maxPWMraw};
+
+	int rawPWM(unsigned int perc);
 
 public:
 	// ZoneManager() = delete;
